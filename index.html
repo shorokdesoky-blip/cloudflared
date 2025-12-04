@@ -1,0 +1,63 @@
+# ---------------------------------------
+# 1) Download & prepare Cloudflared
+# ---------------------------------------
+!wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
+!chmod +x cloudflared
+
+# ---------------------------------------
+# 2) Create the German Test Website (Flask)
+# ---------------------------------------
+from flask import Flask, request
+
+app = Flask(__name__)
+
+@app.route("/", methods=["GET", "POST"])
+def home():
+    html = """
+    <h1>German Test – A1 Level</h1>
+    <form method='POST'>
+        <p>1. Wie heißt du?</p>
+        <select name='q1'>
+            <option value='Ich heiße Anna'>Ich heiße Anna</option>
+            <option value='Ich bin 20 Uhr'>Ich bin 20 Uhr</option>
+        </select>
+
+        <p>2. Ich ____ aus Ägypten.</p>
+        <input name='q2' placeholder='komme'>
+
+        <p>3. Translate: I live in Cairo</p>
+        <input name='q3' placeholder='Ich wohne in Kairo'>
+
+        <br><br>
+        <button type='submit'>Submit</button>
+    </form>
+    """
+
+    if request.method == "POST":
+        score = 0
+        if request.form.get("q1") == "Ich heiße Anna":
+            score += 1
+        if request.form.get("q2").strip().lower() == "komme":
+            score += 1
+        if request.form.get("q3").strip().lower() == "ich wohne in kairo":
+            score += 1
+
+        return f"<h1>Your score: {score}/3</h1><br><a href='/'>Try Again</a>"
+
+    return html
+
+# Run Flask in background
+import threading
+
+def run_flask():
+    app.run(port=5000, debug=False, use_reloader=False)
+
+thread = threading.Thread(target=run_flask)
+thread.start()
+
+# ---------------------------------------
+# 3) Start Cloudflare Tunnel (your public link)
+# ---------------------------------------
+import subprocess
+print("⏳ Starting Cloudflare Tunnel...")
+tunnel = subprocess.Popen(["./cloudflared", "tunnel", "--url", "http://localhost:5000"])
